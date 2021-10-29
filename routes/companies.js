@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const slugify = require("slugify");
 
 router.get("/", async (req, res, next) => {
   try {
@@ -13,6 +14,7 @@ router.get("/", async (req, res, next) => {
 
 router.get("/:code", async (req, res, next) => {
   const comp_code = req.params.code;
+  slugifyString(comp_code);
   try {
     const company = await db.query(
       `SELECT code,name,description FROM companies WHERE code=$1`,
@@ -30,13 +32,14 @@ router.get("/:code", async (req, res, next) => {
 });
 
 router.post("/", async (req, res, next) => {
-  const { code, name, description } = req.body;
+  let { code, name, description } = req.body;
+  slugifyString(code, name, description);
   try {
     const company = await db.query(
       `INSERT INTO companies (code,name,description)  VALUES ($1,$2,$3) RETURNING *`,
       [code, name, description]
     );
-    return res.json({company: company.rows[0]});
+    return res.json({ company: company.rows[0] });
   } catch (e) {
     return res.json({ message: "no data found" });
   }
@@ -44,6 +47,7 @@ router.post("/", async (req, res, next) => {
 
 router.put("/:code", async (req, res, next) => {
   const { name, description } = req.body;
+  slugifyString(name, description)
   try {
     const company = await db.query(
       `UPDATE companies SET name=$1, description=$2 WHERE code=$3 RETURNING * `,
@@ -58,7 +62,7 @@ router.put("/:code", async (req, res, next) => {
 router.delete("/:code", async (req, res, next) => {
   try {
     const company = await db.query(`DELETE FROM companies WHERE code=$1`, [
-      req.params.code,
+      slugifyString(req.params.code),
     ]);
     return res.json({ status: "deleted" });
   } catch (e) {
@@ -66,4 +70,16 @@ router.delete("/:code", async (req, res, next) => {
   }
 });
 
+function slugifyString(...args) {
+
+  for (let text of args) {
+    let new_text = slugify(`${text}`, {
+      lower: true,
+      strict: true,
+      remove: /[*+~.()'"!:@]/g,
+    });
+    return new_text;
+  }
+
+}
 module.exports = router;
